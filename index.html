@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Mental Interactiu - Segona Guerra Mundial</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .canvas {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+
+        .canvas.dragging {
+            cursor: grabbing;
+        }
+
+        .central-node {
+            position: absolute;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 25px;
+            border-radius: 50%;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            cursor: move;
+            transition: transform 0.2s ease;
+            z-index: 10;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .central-node:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        .branch {
+            position: absolute;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            cursor: move;
+            transition: transform 0.2s ease;
+            border-left: 6px solid;
+            min-width: 280px;
+            max-width: 320px;
+            z-index: 5;
+        }
+
+        .branch:hover {
+            transform: scale(1.02);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.25);
+        }
+
+        .branch.dragging {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+            z-index: 20;
+        }
+
+        .branch h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .branch ul {
+            list-style: none;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .branch li {
+            margin-bottom: 6px;
+            position: relative;
+            padding-left: 15px;
+            color: #34495e;
+        }
+
+        .branch li:before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #666;
+        }
+
+        /* Cores dos ramos */
+        .causes { border-left-color: #e74c3c; }
+        .hitler { border-left-color: #8e44ad; }
+        .triggers { border-left-color: #f39c12; }
+        .phases { border-left-color: #27ae60; }
+        .occupation { border-left-color: #34495e; }
+        .end { border-left-color: #16a085; }
+        .new-order { border-left-color: #2980b9; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 20px;
+            top: 15px;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .modal h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .modal p, .modal li {
+            line-height: 1.6;
+            margin-bottom: 10px;
+            color: #34495e;
+        }
+
+        .modal ul {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+
+        .controls h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .controls button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 2px;
+        }
+
+        .controls button:hover {
+            background: #2980b9;
+        }
+
+        .instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-width: 300px;
+        }
+
+        .instructions h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .instructions p {
+            margin-bottom: 5px;
+            color: #34495e;
+        }
+
+        @media (max-width: 768px) {
+            .branch {
+                min-width: 250px;
+                max-width: 280px;
+                padding: 15px;
+            }
+            
+            .central-node {
+                width: 150px;
+                height: 150px;
+                font-size: 14px;
+                padding: 20px;
+            }
+            
+            .controls, .instructions {
+                font-size: 11px;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas" id="canvas">
+        <!-- Nó central -->
+        <div class="central-node draggable" id="central" ondblclick="showModal('central')">
+            SEGONA<br>GUERRA<br>MUNDIAL<br><small>(1939-1945)</small>
+        </div>
+
+        <!-- Ramos -->
+        <div class="branch causes draggable" id="causes" ondblclick="showModal('causes')" style="top: 5%; left: 2%;">
+            <h3>1. CAUSES</h3>
+            <ul>
+                <li>Tractat de Versalles</li>
+                <li>Crisi del 1929</li>
+                <li>Ascens del feixisme</li>
+                <li>Nacionalisme alemany</li>
+                <li>Política d'apaivagament</li>
+            </ul>
+        </div>
+
+        <div class="branch hitler draggable" id="hitler" ondblclick="showModal('hitler')" style="top: 2%; right: 2%;">
+            <h3>2. PREPARACIÓ ALEMANYA</h3>
+            <ul>
+                <li>Lebensraum (espai vital)</li>
+                <li>Rearmament alemany</li>
+                <li>Aliança de l'Eix</li>
+                <li>Expansionisme</li>
+                <li>Indústria bèl·lica</li>
+            </ul>
+        </div>
+
+        <div class="branch triggers draggable" id="triggers" ondblclick="showModal('triggers')" style="top: 30%; left: 1%;">
+            <h3>3. ESPURNA</h3>
+            <ul>
+                <li>Invasió de Polònia (1939)</li>
+                <li>Pangermanisme</li>
+                <li>Expansió japonesa</li>
+                <li>Fracàs de la Societat de Nacions</li>
+                <li>Política expansionista</li>
+            </ul>
+        </div>
+
+        <div class="branch phases draggable" id="phases" ondblclick="showModal('phases')" style="top: 28%; right: 25%;">
+            <h3>4. FASES DE LA GUERRA</h3>
+            <ul>
+                <li>Fase I: Ofensives de l'Eix</li>
+                <li>Fase II: Estabilització</li>
+                <li>Fase III: Ofensives Aliades</li>
+                <li>Pearl Harbor (1941)</li>
+                <li>Normandia (1944)</li>
+            </ul>
+        </div>
+
+        <div class="branch occupation draggable" id="occupation" ondblclick="showModal('occupation')" style="bottom: 20%; left: 2%;">
+            <h3>5. OCUPACIÓ NAZI</h3>
+            <ul>
+                <li>Règim de terror</li>
+                <li>Treball forçat</li>
+                <li>Holocaust (6 milions)</li>
+                <li>Col·laboracionistes</li>
+                <li>Resistència</li>
+            </ul>
+        </div>
+
+        <div class="branch end draggable" id="end" ondblclick="showModal('end')" style="bottom: 2%; right: 2%;">
+            <h3>6. FI DE LA GUERRA</h3>
+            <ul>
+                <li>Conferències Ialta/Potsdam</li>
+                <li>Divisió d'Alemanya</li>
+                <li>Judicis de Nuremberg</li>
+                <li>Creació de l'ONU</li>
+                <li>Hegemonia EUA/URSS</li>
+            </ul>
+        </div>
+
+        <div class="branch new-order draggable" id="neworder" ondblclick="showModal('neworder')" style="top: 55%; right: 1%;">
+            <h3>7. NOU ORDRE MUNDIAL</h3>
+            <ul>
+                <li>Guerra Freda</li>
+                <li>Teló d'acer</li>
+                <li>Blocs antagònics</li>
+                <li>ONU, FMI, Banc Mundial</li>
+                <li>Política de contenció</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="controls">
+        <h4>Controls</h4>
+        <button onclick="resetPositions()">Reiniciar posicions</button>
+        <button onclick="saveLayout()">Guardar disseny</button>
+        <button onclick="loadLayout()">Carregar disseny</button>
+    </div>
+
+    <div class="instructions">
+        <h4>Com utilitzar:</h4>
+        <p>• Arrossega qualsevol element per moure'l</p>
+        <p>• Doble clic per veure detalls</p>
+        <p>• Utilitza els controls per guardar el teu disseny</p>
+    </div>
+
+    <!-- Modal per als detalls -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        let isDragging = false;
+        let currentElement = null;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        // Configurar arrossegament
+        document.querySelectorAll('.draggable').forEach(element => {
+            element.addEventListener('mousedown', startDrag);
+            element.addEventListener('touchstart', startDrag, { passive: false });
+        });
+
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+
+        function startDrag(e) {
+            e.preventDefault();
+            isDragging = true;
+            currentElement = e.target.closest('.draggable');
+            currentElement.classList.add('dragging');
+            
+            const clientX = e.clientX || e.touches[0].clientX;
+            const clientY = e.clientY || e.touches[0].clientY;
+            const rect = currentElement.getBoundingClientRect();
+            
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+            
+            document.body.style.cursor = 'grabbing';
+        }
+
+        function drag(e) {
+            if (!isDragging || !currentElement) return;
+            
+            e.preventDefault();
+            const clientX = e.clientX || e.touches[0].clientX;
+            const clientY = e.clientY || e.touches[0].clientY;
+            
+            const newX = clientX - offsetX;
+            const newY = clientY - offsetY;
+            
+            // Limitar als límits de la pantalla
+            const maxX = window.innerWidth - currentElement.offsetWidth;
+            const maxY = window.innerHeight - currentElement.offsetHeight;
+            
+            const constrainedX = Math.max(0, Math.min(newX, maxX));
+            const constrainedY = Math.max(0, Math.min(newY, maxY));
+            
+            currentElement.style.left = constrainedX + 'px';
+            currentElement.style.top = constrainedY + 'px';
+            currentElement.style.right = 'auto';
+            currentElement.style.bottom = 'auto';
+        }
+
+        function endDrag() {
+            if (currentElement) {
+                currentElement.classList.remove('dragging');
+                currentElement = null;
+            }
+            isDragging = false;
+            document.body.style.cursor = 'default';
+        }
+
+        // Contingut dels modals
+        const modalContent = {
+            central: {
+                title: "Segona Guerra Mundial (1939-1945)",
+                content: `
+                    <p><strong>La Segona Guerra Mundial</strong> va ser el conflicte més gran de la història de la humanitat, implicant centenars de milions de persones en diversos continents.</p>
+                    
+                    <h3>Característiques generals:</h3>
+                    <ul>
+                        <li>Durada: 6 anys (1939-1945)</li>
+                        <li>Escala: Mundial, implicant tots els continents</li>
+                        <li>Principals bel·ligerants: Eix (Alemanya, Itàlia, Japó) vs Aliats (EUA, URSS, Regne Unit, França)</li>
+                        <li>Conseqüències: Reconfiguració geopolítica mundial</li>
+                    </ul>
+                    
+                    <p>El conflicte va resultar en l'emergència de les superpotències (EUA i URSS) i l'inici de la Guerra Freda.</p>
+                `
+            },
+            causes: {
+                title: "1. Causes de la Guerra",
+                content: `
+                    <h3>Context post-Primera Guerra Mundial:</h3>
+                    <ul>
+                        <li><strong>Tractat de Versalles:</strong> Va humiliar Alemanya, que va perdre el 10% del seu territori i va haver de pagar indemnitzacions molt altes</li>
+                        <li><strong>Crisi del 1929:</strong> Va empobrir encara més Alemanya i va crear inestabilitat econòmica</li>
+                        <li><strong>Ascens dels règims totalitaris:</strong> Feixisme a Itàlia i nazisme a Alemanya</li>
+                        <li><strong>Nacionalisme alemany:</strong> Sentiment de revenja i desig de recuperar la grandesa perduda</li>
+                        <li><strong>Política d'apaivagament:</strong> França i Regne Unit van intentar evitar la guerra cedint a les demandes alemanyes</li>
+                    </ul>
+                    
+                    <p>L'expansió del comunisme després de la revolució bolxevic també va preocupar la burgesia europea.</p>
+                `
+            },
+            hitler: {
+                title: "2. Preparació Alemanya per la Guerra",
+                content: `
+                    <h3>Programa nazi d'expansió:</h3>
+                    <ul>
+                        <li><strong>Lebensraum (espai vital):</strong> Necessitat d'ampliar el territori per obtenir matèries primeres</li>
+                        <li><strong>Rearmament:</strong> Desenvolupament intensiu d'indústries públiques centrades en armament</li>
+                        <li><strong>Aliança de l'Eix:</strong> Pacte amb Itàlia i Japó per expandir-se territorialment</li>
+                        <li><strong>Intervencionisme estatal:</strong> L'estat controlava l'economia per preparar la guerra</li>
+                        <li><strong>Política expansionista:</strong> Eixamplar fronteres i reforçar l'exèrcit</li>
+                    </ul>
+                    
+                    <p>El Japó també volia convertir-se en la potència hegemònica a Àsia i substituir les potències colonials europees.</p>
+                `
+            },
+            triggers: {
+                title: "3. Espurna que va desencadenar la Guerra",
+                content: `
+                    <h3>Esdeveniments desencadenants:</h3>
+                    <ul>
+                        <li><strong>Invasió de Polònia (1939):</strong> L'acte que va fer esclatar la guerra</li>
+                        <li><strong>Pangermanisme:</strong> Política de reunificació alemanya per recuperar territoris perduts el 1919</li>
+                        <li><strong>Expansió japonesa:</strong> Cerca d'un "espai vital" per tenir matèries primeres i mercats</li>
+                        <li><strong>Fracàs de la Societat de Nacions:</strong> Incapaç de crear un clima d'entesa</li>
+                        <li><strong>Abandonament d'organismes internacionals:</strong> Alemanya i Japó van abandonar la Societat de Nacions el 1933, Itàlia el 1936</li>
+                    </ul>
+                    
+                    <p>La política d'apaivagament dels països vencedors no va poder frenar l'avanç dels règims autoritaris.</p>
+                `
+            },
+            phases: {
+                title: "4. Fases del Desenvolupament de la Guerra",
+                content: `
+                    <h3>Tres fases principals:</h3>
+                    <ul>
+                        <li><strong>Fase I: Ofensives de l'Eix (1939-1941):</strong> Les potències de l'Eix van portar la iniciativa amb la guerra llampec, envaint mig món en tres fronts diferents</li>
+                        <li><strong>Fase II: Estabilització (1942-1943):</strong> L'atac japonès a Pearl Harbor va provocar la intervenció dels EUA i la guerra va entrar en una fase d'equilibri</li>
+                        <li><strong>Fase III: Ofensives Aliades (1944-1945):</strong> El desembarcament aliat a Normandia (6 de juny de 1944) va suposar el principi del final</li>
+                    </ul>
+                    
+                    <h3>Esdeveniments clau:</h3>
+                    <ul>
+                        <li>Pearl Harbor (7 de desembre de 1941)</li>
+                        <li>Batalla de Stalingrad (1942-1943)</li>
+                        <li>Desembarcament de Normandia (6 de juny de 1944)</li>
+                    </ul>
+                `
+            },
+            occupation: {
+                title: "5. Ocupació Nazi a Europa",
+                content: `
+                    <h3>Règim de terror:</h3>
+                    <ul>
+                        <li><strong>Opressió sistemàtica:</strong> Violència contra la població civil, nul respecte als drets humans</li>
+                        <li><strong>Treball forçat:</strong> Milions de presoners de guerra i civils deportats a Alemanya com a mà d'obra</li>
+                        <li><strong>L'Holocaust (Xoà):</strong> Extermini de sis milions de jueus a Europa amb la "solució final"</li>
+                        <li><strong>Altres víctimes:</strong> Tres milions de gitanos, presoners soviètics i opositors polítics, incloent 5.500 republicans espanyols</li>
+                        <li><strong>Instruments de repressió:</strong> Gestapo i SS alemanyes</li>
+                    </ul>
+                    
+                    <h3>Resposta de la població:</h3>
+                    <ul>
+                        <li><strong>Col·laboracionistes:</strong> Governs, industrials i sectors de la població atrets pel nou ordre nazi</li>
+                        <li><strong>Resistència:</strong> Grups armats clandestins i sabotatge contra les accions enemigues</li>
+                    </ul>
+                `
+            },
+            end: {
+                title: "6. Fi de la Guerra",
+                content: `
+                    <h3>Conferències de pau:</h3>
+                    <ul>
+                        <li><strong>Ialta (febrer 1945):</strong> Acords entre EUA, URSS i Gran Bretanya</li>
+                        <li><strong>Potsdam (juliol 1945):</strong> Decisions finals sobre el destí d'Alemanya</li>
+                    </ul>
+                    
+                    <h3>Resolucions principals:</h3>
+                    <ul>
+                        <li>Desmantellament de la indústria militar alemanya i desnazificació</li>
+                        <li>Partició d'Alemanya i Àustria en quatre zones d'ocupació</li>
+                        <li>Devolució de tots els territoris annexionats per Alemanya</li>
+                        <li>Organització d'eleccions democràtiques</li>
+                        <li>Creació de l'ONU</li>
+                        <li>Celebració dels judicis de Nuremberg</li>
+                    </ul>
+                    
+                    <h3>Conseqüències:</h3>
+                    <ul>
+                        <li>Europa va quedar destruïda</li>
+                        <li>EUA i URSS es van convertir en superpotències</li>
+                        <li>Establiment d'un nou ordre universal</li>
+                    </ul>
+                `
+            },
+            neworder: {
+                title: "7. Nou Ordre Mundial",
+                content: `
+                    <h3>Divisió del món en blocs:</h3>
+                    <ul>
+                        <li><strong>Bloc occidental:</strong> EUA, economia capitalista i democràcia parlamentària</li>
+                        <li><strong>Bloc oriental:</strong> URSS, economia col·lectivitzada i sistema de partit únic</li>
+                        <li><strong>Teló d'acer:</strong> Europa dividida en dues zones d'influència</li>
+                    </ul>
+                    
+                    <h3>Inici de la Guerra Freda:</h3>
+                    <ul>
+                        <li><strong>Doctrina Truman (1947):</strong> Política de contenció del comunisme</li>
+                        <li><strong>Rivalitat permanent:</strong> Entre les dues superpotències</li>
+                        <li><strong>Primers conflictes:</strong> Grècia, suport als monàrquics contra la guerrilla comunista</li>
+                    </ul>
+                    
+                    <h3>Noves institucions internacionals:</h3>
+                    <ul>
+                        <li><strong>ONU (1945):</strong> Organització de les Nacions Unides, seu a Nova York</li>
+                        <li><strong>FMI (1944):</strong> Fons Monetari Internacional</li>
+                        <li><strong>Banc Mundial (1944):</strong> Per a la reconstrucció i desenvolupament</li>
+                    </ul>
+                `
+            }
+        };
+
+        function showModal(type) {
+            const modal = document.getElementById('modal');
+            const modalBody = document.getElementById('modal-body');
+            const content = modalContent[type];
+            
+            if (content) {
+                modalBody.innerHTML = `<h2>${content.title}</h2>${content.content}`;
+                modal.style.display = 'block';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // Tancar modal amb Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Tancar modal clicant fora
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Funcions de control
+        function resetPositions() {
+            document.getElementById('central').style.cssText = 'top: 50%; left: 50%; transform: translate(-50%, -50%);';
+            document.getElementById('causes').style.cssText = 'top: 5%; left: 2%;';
+            document.getElementById('hitler').style.cssText = 'top: 2%; right: 2%;';
+            document.getElementById('triggers').style.cssText = 'top: 30%; left: 1%;';
+            document.getElementById('phases').style.cssText = 'top: 28%; right: 25%;';
+            document.getElementById('occupation').style.cssText = 'bottom: 20%; left: 2%;';
+            document.getElementById('end').style.cssText = 'bottom: 2%; right: 2%;';
+            document.getElementById('neworder').style.cssText = 'top: 55%; right: 1%;';
+        }
+
+        function saveLayout() {
+            const layout = {};
+            document.querySelectorAll('.draggable').forEach(element => {
+                const rect = element.getBoundingClientRect();
+                layout[element.id] = {
+                    left: rect.left,
+                    top: rect.top
+                };
+            });
+            localStorage.setItem('mindMapLayout', JSON.stringify(layout));
+            alert('Disseny guardat correctament!');
+        }
+
+        function loadLayout() {
+            const layout = JSON.parse(localStorage.getItem('mindMapLayout') || '{}');
+            Object.keys(layout).forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.style.left = layout[id].left + 'px';
+                    element.style.top = layout[id].top + 'px';
+                    element.style.right = 'auto';
+                    element.style.bottom = 'auto';
+                    if (id === 'central') {
+                        element.style.transform = 'none';
+                    }
+                }
+            });
+            alert('Disseny carregat correctament!');
+        }
+    </script>
+</body>
+</html>
